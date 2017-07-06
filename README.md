@@ -1,4 +1,4 @@
-# p-joker -- iOS kernelcache kext dump tool which write in python
+# p-joker -- iOS kernelcache kext dump tool
   ugly, this tool only support 64bit kernelcache and version >iOS10.0.0
   
 # Usuage
