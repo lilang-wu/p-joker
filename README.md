@@ -2,7 +2,7 @@
   ugly, this tool only support 64bit kernelcache and version >iOS10.0.0
   
 # Usuage
-  Usage: python p-joker.py kernelcache -hk [-K bundleID]
+  Usage: python p-joker.py kernelcache -hkl [-K bundleID]
   
     "-h, --help"
     
@@ -17,6 +17,10 @@
           2)dump one kexts:
             python p-joker.py path/to/kernelcache -K com.apple.security.sandbox [-d dir]
             
+     "-l, --lzss: decrpyt kernelcache > 10.0.0"
+     
+        example:
+          python p-joker path/to/kernelcache -l [-d dir]
      "-d, --dir: output dir"
      
 # Dependent libraries
