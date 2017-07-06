@@ -9,6 +9,7 @@
     "-k, --kext_list: list all the kext informations"
     
         example: python p-joker.py path/to/kernelcache -k
+        
     "-K, --kextdump kext_bundle_identifier: dump this kext"
     
         example:
@@ -21,6 +22,7 @@
      
         example:
           python p-joker path/to/kernelcache -l [-d dir]
+          
      "-d, --dir: output dir"
      
 # Dependent libraries
