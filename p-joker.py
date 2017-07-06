@@ -523,6 +523,9 @@ def Usage():
     print "\t -h, --help"
     print "\t -k, --kext_list: list all the kext informations"
     print "\t -K, --kextdump kext_bundle_identifier: dump this kext"
+    print "\t -d, --dir dumpdir: set the output dir"
+    print "\t -l, --lzss: decrypted the kernelcache"
+
 
 def print_kext_list(kext_prelink, kext_notprelink):
     print "\t%-20s%-100s" % ("offset", "Driver Name(Driver BundleID)")
@@ -537,13 +540,37 @@ def print_kext_list(kext_prelink, kext_notprelink):
             driver_name = details[0]
             print "\t%-20s%-100s" % (addr, driver_name + " (" + driver_bundleID + ")")
 
+def decrypt_kernelcache(filename, output_dir):
+    offset = 0
+    with file(filename, "rb") as kernel:
+        kernel.seek(0, 2)
+        size = kernel.tell()
+        kernel.seek(0)
+        while offset < size:
+            data = struct.unpack(">L", kernel.read(4))[0]
+            if hex(data).replace("0x", "") == "cffaedfe":
+                offset -= 1
+                break
+            offset += 1
+            kernel.seek(offset)
+    dec_kernel = "kernelcache.decrypted"
+    if output_dir:
+        dec_kernel = output_dir + os.sep + dec_kernel
+        print dec_kernel
+    cmd = "./lib/lzssdec -o 0x%x < %s > %s" % (offset, filename, dec_kernel)
+    os.system(cmd)
+    if not output_dir:
+        output_dir = os.getcwd()
+    print "kernelcache is decrypted in %s/!" % output_dir
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         Usage()
         exit(0)
     kernel_f = sys.argv[1]
-    isprintK = False
-    isdumpK = False
+    is_printK = False
+    is_dumpK = False
+    is_dec = False
     dump_driver = ""
     dump_dir = ""
     if not os.path.exists(kernel_f):
@@ -551,34 +578,42 @@ if __name__ == '__main__':
         exit(0)
 
     try:
-        options, args = getopt.getopt(sys.argv[2:], "hkK:d:", ["help", "kext_list", "Kext_dump=", "dir="])
+        options, args = getopt.getopt(sys.argv[2:], "hklK:d:", ["help", "kext_list", "Kext_dump=", "dir=", "lzss"])
     except getopt.GetoptError:
         exit(0)
+
     if not len(options):
         Usage()
         exit(0)
+
     for name, value in options:
         if name in ("-h", "--help"):
             Usage()
             exit(0)
         elif name in ("-k", "--kext_list"):
-            isprintK = True
+            is_printK = True
         elif name in ("-K", "--Kext_dump"):
-            isdumpK = True
+            is_dumpK = True
             dump_driver = value
         elif name in ("-d", "--dir"):
             if value[-1] == os.sep:
                 value = value[:-1]
             dump_dir = value
+        elif name in ("-l", "--lzss"):
+            is_dec = True
         else:
             exit(0)
+
+    if is_dec:
+        decrypt_kernelcache(kernel_f, dump_dir)
+        exit(0)
 
     kernel = KernelMachO(kernel_f)
     driver_list_prelink, driver_list_notprelink = kernel.get_driver_list()
 
-    if isprintK:
+    if is_printK:
         print_kext_list(driver_list_prelink, driver_list_notprelink)
-    if isdumpK:
+    if is_dumpK:
         if dump_driver == "all":
             for driver in driver_list_prelink:
                 for addr, details in driver.iteritems():
