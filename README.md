@@ -2,7 +2,7 @@
   ugly, this tool only support 64bit kernelcache and version >iOS10.0.0
   
 # Usuage
-  Usage: python p-joker.py kernelcache -hk [-K bundleID] "
+  Usage: python p-joker.py kernelcache -hk [-K bundleID]
   
     "-h, --help"
     
@@ -24,5 +24,5 @@
 
 # Support platforms
   MacOS/Windows/Linux
-# -----------------------------------------
-if you have any issues, just let me know!
+#
+if you have any questions, just open the issue!
