@@ -70,7 +70,7 @@ class MetaPackable(type):
         return cls(tpl[0], **kw)
 
 class BasePackable(object):
-    _endian_ = '>'
+    _endian_ = '<'
 
     def to_str(self):
         raise NotImplementedError
