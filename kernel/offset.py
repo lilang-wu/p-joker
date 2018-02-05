@@ -314,7 +314,6 @@ class MachOHeader(object):
         addr = anchor_f + (src_vm - anchor_vm)
         return self.memcpy(addr, 8)
 
-
     def get_memStr_from_vmaddr(self, anchor_f, anchor_vm, src_vm):
         addr = anchor_f + (src_vm - anchor_vm)
         data_str = ""
@@ -346,6 +345,10 @@ class MachOHeader(object):
 
     def get_prelinkf_from_vm(self, src_vm):
         return src_vm - self.prelink_offset
+
+    def get_prelinkvm_from_f(self, anchor_vm, anchor_f, src_f):
+        return src_f + (anchor_vm - anchor_f)
+
 
 if __name__ == '__main__':
     macho_file = open("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "rb")

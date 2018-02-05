@@ -16,5 +16,6 @@ class OSMetaClass(object):
         self.object_vt_vm = 0
         self.object_vt_f = 0
 
+        self.class_super_list = list()
         self.instance_list = list()
         self.metaclass_list = list()

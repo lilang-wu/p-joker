@@ -36,10 +36,6 @@ x30 = 0
 xzr = 0
 
 
-
-
-
-
 def get_actual_value_by_regN(reg):
     #global x0
     if reg == arm64_const.ARM64_REG_X0:
@@ -172,7 +168,7 @@ def get_actual_value_by_regN(reg):
         return xzr
     else:
         print "Extract: find not reg according this name!"
-
+    return None
 
 
 def set_actual_value_by_regN(reg, reg_val):
@@ -208,7 +204,6 @@ def set_actual_value_by_regN(reg, reg_val):
     global x29
     global x30
     global xzr
-
 
     if reg == arm64_const.ARM64_REG_X0:
         x0 = reg_val
@@ -340,4 +335,5 @@ def set_actual_value_by_regN(reg, reg_val):
         xzr = reg_val
     else:
         print "Extract: find not reg according this name!"
+    return None
 
