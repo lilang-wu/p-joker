@@ -958,6 +958,15 @@ def analysis_mif_kext(kernel_header, kernel_f, kexts):
         # we don't do this again when kext is 'all'
         get_metaclass(kernel_header, kernel_f)
 
+        global META_CLASSES
+        global BASE_CLASS
+        with open("/home/wdy/ipsw/ipsw-tools/iokit_kextclass/MetaClass.txt", 'w') as metaclass:
+            for mc_addr, mc in META_CLASSES.iteritems():
+                if mc_addr in BASE_CLASS:
+                    continue
+                metaclass.write('"' + mc.class_name + '"')
+                metaclass.write(",\n")
+
 
 def get_metaclass(kernel_header, kernel_f):
     global prelink_kext_vm
@@ -1000,6 +1009,15 @@ def getSubIOServicesClass(kernel_f, sub_ioservice):
     analysis_inheritance_base(True, True)
 
 
+def getAllMetaClass(kernel_f):
+    k_header = init_kernel_header(kernel_f)
+    get_metaclass(k_header, kernel_f)
+    global META_CLASSES
+    with open("MetaClass.txt", 'r') as metaclass:
+        for mc, key in META_CLASSES.iteritems():
+            metaclass.write(key)
+            metaclass.write("\n")
+
 
 if __name__ == '__main__':
     #
@@ -1011,4 +1029,5 @@ if __name__ == '__main__':
     #getSubIOServicesClass("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "com.apple.iokit.IONetworkingFamily")
     #getSubIOServicesClass("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "all")
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", "all")
-    print len(DRIVER_CLASS) + len(BASE_CLASS)
+    #getAllMetaClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x")
+    #print len(DRIVER_CLASS) + len(BASE_CLASS)
