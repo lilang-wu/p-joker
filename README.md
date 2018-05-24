@@ -27,8 +27,10 @@
      "-d, --dir: output dir"
    
    2. list macOS extension openType
+   ```
    cd mackernel/
    python get_openType.py path/to/extension
+   ```
    
      
 # Dependent libraries
