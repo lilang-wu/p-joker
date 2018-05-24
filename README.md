@@ -35,7 +35,13 @@
    
      
 # Dependent libraries
-  no
+  ```
+  p-joker dependent none
+  
+  get_openType depends on iokitconnection moudle
+  ```
+  
+  
 
 # Support platforms
   MacOS/Windows/Linux
