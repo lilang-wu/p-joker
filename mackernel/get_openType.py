@@ -640,9 +640,18 @@ def getopenType(kext_MachO_f):
     print_results()
     #"""
 
+def print_help():
+    print "Usage:"
+    print " python get_openType.py driver_path"
+    print " Example: python get_openType.py /Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleHDA"
 
 if __name__ == '__main__':
-    getopenType("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleHDA")
+    #getopenType("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleHDA")
     #getopenType("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/IOHDAFamily")
     #getopenType("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleIntelHD5000Graphics")
     #getopenType("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/IOGraphicsFamily")
+    if len(sys.argv) != 2:
+        print_help()
+    else:
+        kext_f = sys.argv[1]
+        getopenType(kext_f)
