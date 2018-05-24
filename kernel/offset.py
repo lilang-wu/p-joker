@@ -208,6 +208,10 @@ class MachOHeader(object):
                 if segname == "__STRINGTAB" and sectname == "":
                     return cmd_cmd.describe()["stroff"]
 
+            if cmd_load.cmd in [LC_DYSYMTAB]:
+                if segname == "__DYSYMTAB" and sectname == "":
+                    return cmd_cmd.describe()["extreloff"]
+
             read_bytes += cmd_load.cmdsize
 
         # make sure the header made sense
@@ -291,6 +295,10 @@ class MachOHeader(object):
                     return cmd_cmd.describe()["nsyms"]
                 if segname == "__STRINGTAB" and sectname == "":
                     return cmd_cmd.describe()["strsize"]
+
+            if cmd_load.cmd in [LC_DYSYMTAB]:
+                if segname == "__DYSYMTAB" and sectname == "":
+                    return cmd_cmd.describe()["nextrel"]
 
             read_bytes += cmd_load.cmdsize
 
