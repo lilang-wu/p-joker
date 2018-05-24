@@ -3,6 +3,7 @@
   
 # Usuage
   1. analysis kernelcache usage
+  ```
     python p-joker.py kernelcache -hkl [-K bundleID]
   
     "-h, --help"
@@ -25,7 +26,7 @@
           python p-joker path/to/kernelcache -l [-d dir]
           
      "-d, --dir: output dir"
-   
+   ```
    2. list macOS extension openType
    ```
    cd mackernel/
