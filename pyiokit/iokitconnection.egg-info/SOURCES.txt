@@ -1,0 +1,8 @@
+setup.py
+iokitconnection.egg-info/PKG-INFO
+iokitconnection.egg-info/SOURCES.txt
+iokitconnection.egg-info/dependency_links.txt
+iokitconnection.egg-info/top_level.txt
+src/IOKitConnectionBase.cpp
+src/IOkitConnectionBase.cpp
+src/bindings.cpp
