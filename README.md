@@ -36,9 +36,9 @@
      
 # Dependent libraries
   ```
-  p-joker dependent none
+  p-joker dependent None
   
-  get_openType depends on iokitconnection moudle
+  get_openType depends on iokitconnection module, you can use "python setup.py install" command under pyiokit to install this module
   ```
   
   
