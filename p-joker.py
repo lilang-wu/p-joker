@@ -2,11 +2,14 @@
 
 import os
 import sys
+import platform
 import struct
 import json
 import getopt
 from kernel.kernel import KernelMachO
-from iokit_kextclass.kext_class import *
+from iokit_kextclass.kext_analyzer import *
+from lib.lzfse import *
+import lzfse
 
 
 
@@ -74,7 +77,21 @@ def print_kext_list(kext_prelink, kext_notprelink):
             #print "\t%-20s%-100s" % (addr, driver_name + " (" + driver_bundleID + ")")
             print "\t%-20s\t%-100s" % (addr, driver_name + " (" + driver_bundleID + ")")
 
+
 def decrypt_kernelcache(filename, output_dir):
+    magic, img_type, version, size, compress_mode, data = get_image_info(filename)
+    dec_kernel_f = "kernelcache.decrypted"
+    dec_kernel = os.getcwd() + os.sep + dec_kernel_f
+    if output_dir:
+        dec_kernel = output_dir + os.sep + dec_kernel_f
+
+    if compress_mode == "complzss":
+        decrypt_kernelcache_v1(filename, dec_kernel)
+    else:
+        decrypt_kernelcache_v2(data, dec_kernel)
+
+
+def decrypt_kernelcache_v1(filename, dec_kernel):
     offset = 0
     with file(filename, "rb") as kernel:
         kernel.seek(0, 2)
@@ -87,15 +104,20 @@ def decrypt_kernelcache(filename, output_dir):
                 break
             offset += 1
             kernel.seek(offset)
-    dec_kernel = "kernelcache.decrypted"
-    if output_dir:
-        dec_kernel = output_dir + os.sep + dec_kernel
-        print dec_kernel
-    cmd = "./lib/lzssdec -o 0x%x < %s > %s" % (offset, filename, dec_kernel)
+    if os.name == "posix":
+        cmd = "./lib/lzssdec_mac -o 0x%x < %s > %s" % (offset, filename, dec_kernel)
+    else:
+        cmd = "./lib/lzssdec_elf -o 0x%x < %s > %s" % (offset, filename, dec_kernel)
     os.system(cmd)
-    if not output_dir:
-        output_dir = os.getcwd()
-    print "kernelcache is decrypted in %s/!" % output_dir
+    print "kernelcache is decrypted into file %s" % dec_kernel
+
+
+def decrypt_kernelcache_v2(data, dec_kernel):
+    decompress_data = lzfse.decompress(data)
+    with open(dec_kernel, 'w') as f:
+        f.write(decompress_data)
+    print "kernelcache is decrypted into file %s" % dec_kernel
+
 
 def list_services(kernel_f):
     cmd = "strings %s | grep 'UserClient$' > .services.txt" % kernel_f

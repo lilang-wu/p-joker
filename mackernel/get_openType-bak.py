@@ -53,11 +53,11 @@ sys.path.append("../")
 from capstone import *
 from capstone import x86_const
 
-from iokit_kextclass.xprint import to_hex, to_x
+from iokit_kextclass.print_xformat import to_hex, to_x
 from iokit_kextclass.OSMetaClass import *
 from kernel.offset import MachOHeader
 
-from regs import x_reg_manager
+from arm_regs import x_reg_manager
 from mach_struct import *
 from misc_func import *
 
@@ -286,7 +286,7 @@ def get_OSMetaClass_initFunc(k_header):
                                     meta_class.class_super_name = k_header.get_memStr_from_vmaddr(each_mif_f, each_mif_vm,
                                                                                         meta_class.class_super_addr)
                                 if meta_class.class_super_name.startswith("__ZN"):
-                                    meta_class.class_super_name = get_metaclass_name(meta_class.class_super_name)
+                                    meta_class.class_super_name = demangle(meta_class.class_super_name)
 
 
                             META_CLASSES[meta_class.class_self_addr] = meta_class
@@ -511,7 +511,7 @@ def analysis_uc_func(k_header, jump_vm, jump_f):
                     elif mem_addr in STRING_TAB:
                         uc_name = STRING_TAB[mem_addr]
                     if "UserClient" in uc_name:
-                        return __clear_uc_name(uc_name)
+                        return demangle(uc_name)
 
         if jz_mnemonic in ["call"]:
             imm_num = insn.op_count(CS_OP_IMM)
@@ -524,7 +524,7 @@ def analysis_uc_func(k_header, jump_vm, jump_f):
                     uc_name = STRING_TAB[uc_addr]
 
                 if "UserClient" in uc_name:
-                    return __clear_uc_name(uc_name)
+                    return demangle(uc_name)
 
             uc_addr = jz_address + 1
             if uc_addr in EXT_RELOCATIONS:
@@ -533,7 +533,7 @@ def analysis_uc_func(k_header, jump_vm, jump_f):
                 uc_name = STRING_TAB[uc_addr]
 
             if "UserClient" in uc_name:
-                return __clear_uc_name(uc_name)
+                return demangle(uc_name)
 
         if jz_mnemonic in ["jz", "je"]:
             imm_num = insn.op_count(CS_OP_IMM)
@@ -542,7 +542,7 @@ def analysis_uc_func(k_header, jump_vm, jump_f):
                 jump_f = k_header.get_f_from_vm(text_fileaddr, text_vmaddr, int(jump_vm, 16))
                 uc_name = analysis_uc_func(k_header, int(jump_vm, 16), jump_f)
                 if "UserClient" in uc_name:
-                    return __clear_uc_name(uc_name)
+                    return demangle(uc_name)
 
         imm_num = insn.op_count(CS_OP_IMM)
         if imm_num == 1:
@@ -553,20 +553,11 @@ def analysis_uc_func(k_header, jump_vm, jump_f):
             elif uc_addr in STRING_TAB:
                 uc_name = STRING_TAB[uc_addr]
             if "UserClient" in uc_name:
-                return __clear_uc_name(uc_name)
+                return demangle(uc_name)
 
 
         if jz_mnemonic in ["call", "ret", "jmp"]:
             return ""
-
-
-def __clear_uc_name(uc_name):
-    if uc_name.startswith("__ZN"):
-        return get_metaclass_name(uc_name)
-    elif uc_name.startswith("__ZTV"):
-        return get_metaclass_name(uc_name, prefix="__ZTV")
-    else:
-        return uc_name
 
 
 def analysis_inheritance_base():
@@ -583,7 +574,7 @@ def analysis_inheritance_base():
                 meta_class.class_super_list.append(META_CLASSES[super_addr].class_self_addr)
                 super_addr = META_CLASSES[super_addr].class_super_addr
             elif super_addr in EXT_RELOCATIONS:
-                extends_rela = __clear_uc_name(EXT_RELOCATIONS[super_addr]) + extends_rela
+                extends_rela = demangle(EXT_RELOCATIONS[super_addr]) + extends_rela
                 extends_rela = "-->" + extends_rela
                 meta_class.class_super_list.append(super_addr)
                 break
@@ -642,8 +633,8 @@ def getopenType(kext_MachO_f):
 
 def print_help():
     print "Usage:"
-    print " python get_openType.py driver_path"
-    print " Example: python get_openType.py /Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleHDA"
+    print " python get_openType-bak.py driver_path"
+    print " Example: python get_openType-bak.py /Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleHDA"
 
 if __name__ == '__main__':
     #getopenType("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/xxxdriver-analysis/AppleHDA")

@@ -42,7 +42,7 @@ check_system(['darwin'], OTHER_OS_MESSAGE)
 if sys.version_info.major == 3:
     boost_libs = ["boost_python-py34"]
 else:
-    boost_libs = ["boost_python"]
+    boost_libs = ["boost_python27"]
 
 modules = [
     Extension(

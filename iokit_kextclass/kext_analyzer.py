@@ -5,11 +5,11 @@ sys.path.append("../")
 from kernel.offset import MachOHeader
 from kernel.kernel import KernelMachO
 from capstone import *
-from xprint import to_hex, to_x
-from regs import *
+from print_xformat import to_hex, to_x
+from arm_regs import *
 from OSMetaClass import OSMetaClass
 
-from colorprint import *
+from print_color import *
 from TypeParser import *
 
 OSMetaClass_OSMetaClass_VMaddr = 0
@@ -797,7 +797,7 @@ def analysis_inheritance_base(iskext, debug):
                 #else:
                 print "SuperClass: 0x%x" % meta_class.class_super_addr
                 print "ClassSize : 0x%x" % meta_class.class_size
-                print meta_class.class_super_list
+                # print meta_class.class_super_list
                 printfunc(meta_class)
 
             index += 1
@@ -845,24 +845,40 @@ def printfunc(meta_class):
             index += 1
             continue
         if "IOUserClient" in func_name:
-            highlight = "%-3d: %-25s%-40s%50s" % (index, func_addr, type_parser(func_name), func_name)
+            highlight = "%-3d: %-25s%-40s" % (index, func_addr, type_parser(func_name))
             printRed(highlight)
         else:
-            print "%-3d: %-25s%-40s%50s" % (index, func_addr, type_parser(func_name), func_name)
+            print "%-3d: %-25s%-40s" % (index, func_addr, type_parser(func_name))
         index += 1
 
     if "IOService" in meta_class.class_super_name:
         print "-----vtable:%s-------" % hex(meta_class.object_vt_vm)
+
+        # print class title
+        title = "%-3s  %-25s%-60s" % (" ", " ", meta_class.class_name)
+        for j in range(len(meta_class.class_super_list)):
+            super_addr = meta_class.class_super_list[j]
+            super_c = None
+            if super_addr in DRIVER_CLASS:
+                super_c = DRIVER_CLASS[super_addr]
+            if super_addr in BASE_CLASS:
+                super_c = BASE_CLASS[super_addr]
+            if super_c:
+                super_c_n = "%-60s" % super_c.class_name
+                title += super_c_n
+        print title
+
+        # join the method name string
         index = 0
         for i in range(len(meta_class.instance_list)):
             instance_addr = meta_class.instance_list[i].split("\t")[0]
             instance_name = meta_class.instance_list[i].split("\t")[1]
             if "sub_" in instance_name:
-                print_str = "%-3d: %-25s%-40s" % (index, instance_addr, instance_name)
+                print_str = "%-3d: %-25s%-60s" % (index, instance_addr, instance_name)
             elif "IOUserClient" in instance_name:
-                print_str = "%-3d: %-25s%-40s" % (index, instance_addr, type_parser(instance_name))
+                print_str = "%-3d: %-25s%-60s" % (index, instance_addr, type_parser(instance_name))
             else:
-                print_str = "%-3d: %-25s%-40s" % (index, instance_addr, type_parser(instance_name))
+                print_str = "%-3d: %-25s%-60s" % (index, instance_addr, type_parser(instance_name))
 
             for j in range(len(meta_class.class_super_list)):
                 super_addr = meta_class.class_super_list[j]
@@ -872,7 +888,7 @@ def printfunc(meta_class):
                         super_inst = super_c.instance_list[i].split("\t")[1]
                         if "sub_" not in super_inst:
                             super_inst = type_parser(super_inst)
-                        super_str = "%-25s" % super_inst
+                        super_str = "%-60s" % super_inst
                         print_str += super_str
                 if super_addr in BASE_CLASS:
                     super_c = BASE_CLASS[super_addr]
@@ -880,7 +896,7 @@ def printfunc(meta_class):
                         super_inst = super_c.instance_list[i].split("\t")[1]
                         if "sub_" not in super_inst:
                             super_inst = type_parser(super_inst)
-                        super_str = "%-25s" % super_inst
+                        super_str = "%-60s" % super_inst
                         print_str += super_str
 
             if "IOUserClient" in print_str:
@@ -895,15 +911,15 @@ def printfunc(meta_class):
             instance_addr = instance.split("\t")[0]
             instance_name = instance.split("\t")[1]
             if "sub_" in instance_name:
-                print "%-3d: %-25s%-40s" % (index, instance_addr, instance_name)
+                print "%-3d: %-25s%-60s" % (index, instance_addr, instance_name)
                 index += 1
                 continue
             if "IOUserClient" in instance_name:
-                highlight = "%-3d: %-25s%-40s%100s" % (index, instance_addr, type_parser(instance_name), instance_name)
+                highlight = "%-3d: %-25s%-60s" % (index, instance_addr, type_parser(instance_name))
                 printRed(highlight)
             else:
                 #print instance
-                print "%-3d: %-25s%-40s%100s" % (index, instance_addr, type_parser(instance_name), instance_name)
+                print "%-3d: %-25s%-60s" % (index, instance_addr, type_parser(instance_name))
             index += 1
 
 
@@ -960,7 +976,7 @@ def analysis_mif_kext(kernel_header, kernel_f, kexts):
 
         global META_CLASSES
         global BASE_CLASS
-        with open("/home/wdy/ipsw/ipsw-tools/iokit_kextclass/MetaClass.txt", 'w') as metaclass:
+        with open("MetaClass.txt", 'w') as metaclass:
             for mc_addr, mc in META_CLASSES.iteritems():
                 if mc_addr in BASE_CLASS:
                     continue
@@ -1024,7 +1040,7 @@ if __name__ == '__main__':
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", "com.apple.iokit.IOHIDFamily")
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", "com.apple.iokit.IOHIDFamily")
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", ["com.apple.driver.AppleMobileDispH10P"])
-    getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", ["com.apple.driver.AppleMobileDispH10P",
+    getSubIOServicesClass("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/tools-test/iphone_x", ["com.apple.driver.AppleMobileDispH10P",
                                                                      "com.apple.iokit.IOMobileGraphicsFamily"])
     #getSubIOServicesClass("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "com.apple.iokit.IONetworkingFamily")
     #getSubIOServicesClass("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "all")

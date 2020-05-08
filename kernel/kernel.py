@@ -285,7 +285,9 @@ class MachOHeader(object):
             # read the load command
             cmd_load = load_command.from_fileobj(fh, **kw)
             # read the specific command
+
             klass = LC_REGISTRY.get(cmd_load.cmd, None)
+            print klass.__name__
             if klass is None:
                 raise ValueError("Unknown load command: %d" % (cmd_load.cmd,))
             cmd_cmd = klass.from_fileobj(fh, **kw)

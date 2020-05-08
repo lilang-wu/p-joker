@@ -1,5 +1,16 @@
+import cxxfilt
 
 def type_parser(method_type):
+    if method_type.startswith("0x"):
+        return method_type
+    uc_name = method_type[1:]
+    cx_name = cxxfilt.demangle(uc_name)
+    if cx_name[-5:] == "const":
+        return cx_name[:-6]
+    return cx_name
+
+
+def type_parser1(method_type):
     type_list = list()
     fir_p = -0xff
     cond = True
@@ -58,5 +69,5 @@ def type_parser(method_type):
 
 
 if __name__ == '__main__':
-    type_parser("__ZN10IOWorkLoop9runActionEPFiP8OSObjectPvS2_S2_S2_ES1_S2_S2_S2_S2_")
+    print type_parser("__ZNK15IORegistryEntry16getPathComponentEPcPiPK15IORegistryPlane")
     #type_parser("__ZN28IOFilterInterruptEventSource4initEP8OSObjectPFvS1_P22IOInterruptEventSourceiEPFbS1_PS_EP9IOServicei")

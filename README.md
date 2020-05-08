@@ -2,9 +2,7 @@
   ugly, this tool only support 64bit kernelcache and version >iOS10.0.0
   
 # Usuage
-  1. analysis kernelcache usage
-  ```
-    python p-joker.py kernelcache -hkl [-K bundleID]
+  Usage: python p-joker.py kernelcache -hkl [-K bundleID]
   
     "-h, --help"
     
@@ -26,22 +24,9 @@
           python p-joker path/to/kernelcache -l [-d dir]
           
      "-d, --dir: output dir"
-   ```
-   2. list macOS extension openType
-   ```
-   cd mackernel/
-   python get_openType.py path/to/extension
-   ```
-   
      
 # Dependent libraries
-  ```
-  p-joker dependent None
-  
-  get_openType depends on iokitconnection module, you can use "python setup.py install" command under pyiokit to install this module
-  ```
-  
-  
+  no
 
 # Support platforms
   MacOS/Windows/Linux

@@ -21,4 +21,33 @@ class Ext_Reloc(object):
 
 
 
+class IOExternalMethodDispatch(object):
+
+    def __init__(self):
+        self.function_name = ""
+        self.function_addr = 0
+        self.checkScalarInputCount = 0
+        self.checkStructureInputSize = 0
+        self.checkScalarOutputCount = 0
+        self.checkStructureOutputSize = 0
+
+
+class IOExternalMethod(object):
+
+    def __init__(self):
+        self.service_object = None
+        self.IOMethod = None
+        self.flags = -1
+        self.count0 = -1
+        self.count1 = -1
+
+
+class IOExternalAsyncMethod(object):
+
+    def __init__(self):
+        self.service_object = None
+        self.IOAsyncMethod = None
+        self.flags = -1
+        self.count0 = -1
+        self.count1 = -1
 
