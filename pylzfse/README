@@ -1,0 +1,28 @@
+             _      __
+ _ __  _   _| |____/ _|___  ___
+| '_ \| | | | |_  / |_/ __|/ _ \
+| |_) | |_| | |/ /|  _\__ \  __/
+| .__/ \__, |_/___|_| |___/\___|
+|_|    |___/
+
+Overview
+========
+
+pylzfse is a Python (https://www.python.org/) module that provides LZFSE
+compression and decompression through the reference implementation provided by
+Apple (https://github.com/lzfse/lzfse).
+
+Building
+========
+
+  $ git clone --recursive https://github.com/dimkr/pylzfse
+  $ python setup.py build
+
+Credits and Legal Information
+=============================
+
+pylzfse is free and unencumbered software released under the terms of the MIT
+license; see COPYING for the license text. For a list of its authors and
+contributors, see AUTHORS.
+
+The ASCII art logo at the top was made using FIGlet (http://www.figlet.org/).

@@ -247,8 +247,11 @@ def get_all_metaclass(k_header=None, iskext=False):  # mod init func
                                 x_reg_mem_v = k_header.kernel_header.memcpy(
                                     k_header.get_f_from_vm(prelink_data_f, prelink_data_vm, s_reg_v + mem_offset), 8)
                             else:
-                                x_reg_mem_v = k_header.kernel_header.memcpy(k_header.get_prelinkf_from_vm(
-                                    s_reg_v + mem_offset), 8)
+                                try:
+                                    x_reg_mem_v = k_header.kernel_header.memcpy(k_header.get_prelinkf_from_vm(
+                                        s_reg_v + mem_offset), 8)
+                                except:
+                                    break
                         else:
                             x_reg_mem_v = k_header.get_mem_from_vmaddr(each_mif_f, each_mif_vm,
                                                                        s_reg_v + mem_offset)
@@ -320,7 +323,7 @@ def analysis_mif(k_header=None, iskext=False):  # mod init func
     total_mif = mod_init_size / 8
     print "Extract: total %d kernel base object modinit" % total_mif
 
-    for i in range(0, total_mif):
+    for i in range(1, total_mif):
         each_mif_vm = k_header.get_mem_from_vmaddr(mod_init_fileaddr, mod_init_vmaddr, mod_init_vmaddr + i * 8)
         each_mif_f = k_header.get_f_from_vm(mod_init_fileaddr, mod_init_vmaddr, each_mif_vm)
 
@@ -333,7 +336,9 @@ def analysis_mif(k_header=None, iskext=False):  # mod init func
             address = insn.address
             mnemonic = insn.mnemonic
             op_str = insn.op_str
-            # print("0x%x:\t%s\t%s" % (address, mnemonic, op_str))
+
+            #if iskext:
+            #print("0x%x:\t%s\t%s" % (address, mnemonic, op_str))
 
             if not (cmp(mnemonic, "adrp") and cmp(mnemonic, "adr")):
                 imm = get_single_IMM(insn)
@@ -443,6 +448,7 @@ def analysis_mif(k_header=None, iskext=False):  # mod init func
 
                     bl_addr_vm = int(bl_addr_vm, 16)
                     bl_addr_f = k_header.get_f_from_vm(each_mif_f, each_mif_vm, bl_addr_vm)
+                    # print hex(bl_addr_f), hex(bl_addr_vm)
                     bl_indrect_addr = get_jump_addr(k_header, cs_handler, bl_addr_vm, bl_addr_f)
 
                     if hex(bl_indrect_addr).strip("L") == OSMetaClass_OSMetaClass_VMaddr:
@@ -464,12 +470,16 @@ def analysis_mif(k_header=None, iskext=False):  # mod init func
 
             if not cmp(mnemonic, "str"):
                 reg_num = insn.op_count(CS_OP_REG)
+                # something wrong here when run on macOS, maybe the capstone version is update
                 if reg_num == 1:
                     continue
+
                 f_reg = get_first_reg(insn)
+                #print f_reg
                 if f_reg == arm64_const.ARM64_REG_XZR or f_reg == arm64_const.ARM64_REG_D0 or\
                                 f_reg == arm64_const.ARM64_REG_WZR:
                     continue
+                
                 s_reg = get_second_reg(insn)
 
                 if s_reg:
@@ -655,6 +665,7 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
             pass
 
         DRIVER_CLASS[meta_class.class_self_addr] = meta_class
+        #print DRIVER_CLASS
 
 
 def get_object_vtable(k_header, gmc_func_addr):
@@ -711,7 +722,7 @@ def get_jump_addr(k_header, cs_handler, bl_addr_vm, bl_addr_f):
         address = insn.address
         mnemonic = insn.mnemonic
         op_str = insn.op_str
-        #print("0x%x:\t%s\t%s" % (address, mnemonic, op_str))
+        # print("0x%x:\t%s\t%s" % (address, mnemonic, op_str))
 
         if first_check:
             if not (cmp(mnemonic, "adrp") and cmp(mnemonic, "adr")):
@@ -737,10 +748,12 @@ def get_jump_addr(k_header, cs_handler, bl_addr_vm, bl_addr_f):
                     x16_reg = get_mem_op_reg(insn)
                     x16_reg_v = get_actual_value_by_regN(x16_reg)
                     set_actual_value_by_regN(x16_reg, x16_reg_v + mem_offset)
-
-                    x16_reg_mem_v = k_header.get_mem_from_vmaddr(bl_addr_f, bl_addr_vm,
-                                                                 get_actual_value_by_regN(x16_reg))
-                    set_actual_value_by_regN(x16_reg, x16_reg_mem_v)
+                    try:
+                        x16_reg_mem_v = k_header.get_mem_from_vmaddr(bl_addr_f, bl_addr_vm,
+                                                                     get_actual_value_by_regN(x16_reg))
+                        set_actual_value_by_regN(x16_reg, x16_reg_mem_v)
+                    except:
+                        return 0
 
         if not cmp(mnemonic, "br"):
             if insn.op_count(CS_OP_REG):
@@ -759,6 +772,7 @@ def analysis_inheritance_base(iskext, debug):
 
     if iskext:
         index = 0
+        print DRIVER_CLASS
         for class_self, meta_class in DRIVER_CLASS.iteritems():
             super_addr = meta_class.class_super_addr
             super_class_name = ""
@@ -1039,9 +1053,10 @@ if __name__ == '__main__':
     #
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", "com.apple.iokit.IOHIDFamily")
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", "com.apple.iokit.IOHIDFamily")
-    #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", ["com.apple.driver.AppleMobileDispH10P"])
-    getSubIOServicesClass("/Users/lilang_wu/Documents/IOS/ios_fuzz/iokit/tools-test/iphone_x", ["com.apple.driver.AppleMobileDispH10P",
-                                                                     "com.apple.iokit.IOMobileGraphicsFamily"])
+    #getSubIOServicesClass("/home/wdy/Desktop/kernel_10_3_2", ["com.apple.iokit.IOHIDFamily"])
+    getSubIOServicesClass("/home/wdy/Desktop/kernel_13", ["com.apple.iokit.IOHIDFamily"])
+    #getSubIOServicesClass("/Users/lilang_wu/Documents/vulnerabilities/macOS/p-joker/p-joker-dev-v1.1/kernelcache.decrypted", ["com.apple.driver.AppleMobileDispH10P",
+     #                                                                "com.apple.iokit.IOMobileGraphicsFamily"])
     #getSubIOServicesClass("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "com.apple.iokit.IONetworkingFamily")
     #getSubIOServicesClass("/home/wdy/ipsw/kernel_cache/kernel_10_3_2", "all")
     #getSubIOServicesClass("/home/wdy/ipsw/iphonex/11_2_2/kernel_x", "all")

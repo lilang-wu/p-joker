@@ -13,7 +13,7 @@ analysis_root_path = "/Users/lilang_wu/Documents/vulnerabilities/macOS/p-joker/E
 
 def analysis_extensions_v1(root_dir=analysis_root_path):
     """
-    only enumerate the external methods and connection types for each Service class
+    enumerate the external methods and connection types for all Service classes in the given path
     :param root_dir:
     :return:
     """
@@ -132,8 +132,8 @@ def analysis_extensions_v4(root_dir=analysis_root_path): # only get meta class n
 
 
 if __name__ == '__main__':
-    analysis_extensions_v1()
-    #analysis_extensions_v2()
+    #analysis_extensions_v1()
+    analysis_extensions_v2()
     #analysis_extensions_v3("/Users/lilang_wu/Documents/vulnerabilities/macOS/p-joker/Extensions_machO/AMDRadeonX4000/AMDRadeonX4000")
     #analysis_extensions_v4()
 
