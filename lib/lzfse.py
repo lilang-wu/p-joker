@@ -14,7 +14,7 @@ def get_image_info(filename):
             if ord(file.read(1)) == 0x04:
                 break
         magic = file.read(4)
-        print magic
+        # print magic
         if magic == b'IM4P':
             magic = "img4"
         else:
@@ -51,8 +51,6 @@ def get_image_info(filename):
 
         for i in range(array_len):
             size += size_byte_array[i] << (4 * (2 * (array_len - 1 - i)))
-            print hex(size)
-        print version, size
 
         if compress_mode == 0x62:
             compress_mode = "bvx2"
@@ -86,8 +84,6 @@ def get_image_info(filename):
                 break
             kernel.seek(-4, os.SEEK_CUR)
 
-        print data_start
-        print data_end
         data_size = kernel_size - data_start - data_end + 3
 
         kernel.seek(data_start, os.SEEK_SET)

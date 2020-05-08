@@ -5,6 +5,7 @@ import sys
 import platform
 import struct
 import json
+import ast
 import getopt
 from kernel.kernel import KernelMachO
 from iokit_kextclass.kext_analyzer import *
@@ -54,12 +55,24 @@ class CommonTool(object):
         return func_dict
 
 def Usage():
-    print " Usage: python p-joker.py kernelcache -hkls [-K bundleID] [-d dir]"
+    print " Usage: python p-joker.py kernelcache -hkls [-Ke bundleID(or list)] [-d dir]"
     print "\t -h, --help"
     print "\t -k, --kext_list: list all the kext informations"
     print "\t -K, --kextdump kext_bundle_identifier: dump this kext"
     print "\t -d, --dir dumpdir: set the output dir"
     print "\t -l, --lzss: decrypted the kernelcache"
+    print "\t -e, --extract: extract all meta classes and their methods for given extension bundleID (Note: you'd better use this feature on Linux)\n\n"
+    print " For example:"
+    print "\t decrypt kernelcache, support bvx and complzss format:"
+    print "\t\t $ python p-joker.py kernelcache.encrypted -l\n"
+    print "\t list all the kexts info:"
+    print "\t\t $ python p-joker.py kernelcache.decrypted -k\n"
+    print "\t dump certain kext from kernelcache:"
+    print "\t\t $ python p-joker.py kernelcache.decrypted -K com.apple.iokit.IOHIDFamily\n"
+    print "\t extract all meta class and their functions information for all extensions within kernelcache:"
+    print "\t\t $ python p-joker.py kernelcache.decrypted -e " + '"[' + "'all'" + ']"\n'
+    print "\t extract all meta class and their functions information for certain extensions within kernelcache:"
+    print "\t\t $ python p-joker.py kernelcache.decrypted -e " + '"[' + "'com.apple.iokit.IOHIDFamily'" + ']"\n'
 
 
 def print_kext_list(kext_prelink, kext_notprelink):
@@ -195,7 +208,9 @@ if __name__ == '__main__':
         if extract_sub_ioservice == "all":
             pass
         else:
-            sub_ioservice = extract_sub_ioservice
+            sub_ioservice_str = extract_sub_ioservice
+            sub_ioservice = ast.literal_eval(sub_ioservice_str)
+            print type(sub_ioservice)
             getSubIOServicesClass(kernel_f, sub_ioservice)
 
         exit(0)
