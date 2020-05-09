@@ -3,7 +3,7 @@
   For MacOS kernel extensions, it support all the extensions' mach-o file.  
   
 # Usuage
-## for p-joker.py
+## for p-joker.py (now -e feature can not support iOS 12/13, will fix in later)
   Usage: python p-joker.py kernelcache -hkl [-K bundleID]
 
   ```
@@ -35,7 +35,7 @@
 
   ```
 
-## for p-extension.py
+## for p-extension.py (support macOS only)
   ```
  Usage: python p-extensions.py -mpfc extension_path/extension_macho
 	 -h, --help
