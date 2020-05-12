@@ -167,8 +167,7 @@ def get_actual_value_by_regN(reg):
     elif reg == arm64_const.ARM64_REG_WZR:
         return xzr
     else:
-        print "Extract: find not reg according this name!"
-    return None
+        return None
 
 
 def set_actual_value_by_regN(reg, reg_val):
@@ -334,6 +333,5 @@ def set_actual_value_by_regN(reg, reg_val):
     elif reg == arm64_const.ARM64_REG_WZR:
         xzr = reg_val
     else:
-        print "Extract: find not reg according this name!"
-    return None
+        return
 

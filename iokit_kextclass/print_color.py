@@ -45,11 +45,15 @@ else:
         style = '\033[%sm' % style if style else ''
         end   = '\033[%sm' % 0 if style else ''
         return '%s%s%s' % (style, msg, end)
+
     def printRed(msg):
         print UseStyle(msg,fore='red')
+
     def printGreen(msg):
         print UseStyle(msg,fore='green')
+
     def printYellow(msg):
         print UseStyle(msg,fore='yellow')
+
     def printBlue(msg):
         print UseStyle(msg,fore='blue')

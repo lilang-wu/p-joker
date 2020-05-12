@@ -11,6 +11,7 @@ import getopt
 from lib.mach_o import *
 from lib.util import fileview
 import xml.etree.ElementTree as ET
+from iokit_kextclass.OSInfo import *
 
 
 
@@ -119,15 +120,47 @@ class KernelMachO(object):
         else:
             print "file %s is fat or 32bit" % self.filename
 
-    def get_driver_list(self):
+    def get_driver_list_v1(self):
         driver_list_prelink = self.driver_list_prelink = []
         driver_list_notprelink = self.driver_list_notprelink = []
         fh = self.macho_file
         if "__PRELINK_INFO,__info" not in self.get_section_addrs():
             return None
 
+        contain_pac = False
         sec_addr = self.get_section_addrs()["__PRELINK_INFO,__info"]["offset"]
         sec_size = self.get_section_addrs()["__PRELINK_INFO,__info"]["size"]
+
+        if "__PRELINK_INFO,__kmod_start" in self.get_section_addrs():
+            contain_pac = True
+
+        kmod_addresses = []
+        kmod_info = []
+        if contain_pac:
+            sec_kmod_info_addr = self.get_section_addrs()["__PRELINK_INFO,__kmod_info"]["offset"]
+            sec_kmod_info_size = self.get_section_addrs()["__PRELINK_INFO,__kmod_info"]["size"]
+
+            sec_kmod_start_addr = self.get_section_addrs()["__PRELINK_INFO,__kmod_start"]["offset"]
+            sec_kmod_start_size = self.get_section_addrs()["__PRELINK_INFO,__kmod_start"]["size"]
+            # get all kmod info first, but maybe not used here, we directly use the info saved in
+            # "__PRELINK_INFO,__info" section
+            size = 0
+            fh.seek(sec_kmod_info_addr)
+            while size < sec_kmod_info_size:
+                # little-endian
+                kmod_info_ob = struct.unpack('<Q', fh.read(8))[0]
+                kmod_info.append(kmod_info_ob)
+                size += 8
+
+            # get all drivers start address second
+            size = 0
+            fh.seek(sec_kmod_start_addr)
+            while size < sec_kmod_start_size:
+                # little-endian
+                kmod_address = struct.unpack('<Q', fh.read(8))[0]
+                kmod_addresses.append(kmod_address)
+                size += 8
+
         size = 0
         section = ""
         fh.seek(sec_addr)
@@ -139,26 +172,109 @@ class KernelMachO(object):
             sec_addr += 1
             size += 1
             fh.seek(sec_addr)
-        #CommonTool.save_file("/home/wdy/ipsw/ipsw-tools/kext.xml", section)
-        #tree = ET.ElementTree(file="/home/wdy/ipsw/ipsw-tools/kext.xml")
+
         tree = ET.fromstring(section)
         for bundle in tree.iterfind("array/dict"):
             driver_dict = {}
             driver_details = self.__parser_driver_dict(ET.tostring(bundle))
-            if "_PrelinkKmodInfo" in driver_details:
+
+            if contain_pac and "ModuleIndex" in driver_details:
                 driver_name = (driver_details["CFBundleName"], driver_details["CFBundleIdentifier"],
-                               driver_details["_PrelinkKmodInfo"])
-            else:
-                driver_name = (driver_details["CFBundleName"], driver_details["CFBundleIdentifier"],
-                               None)
-            if "_PrelinkExecutableLoadAddr" in driver_details:
-                driver_dict[driver_details["_PrelinkExecutableLoadAddr"]] = driver_name
+                               driver_details["ModuleIndex"])
+
+                driver_dict[hex(kmod_addresses[int(driver_name[2], 16)] | 0xffff000000000000)] = driver_name
                 driver_list_prelink.append(driver_dict)
+
             else:
-                driver_dict["0x0000000000000000"] = driver_name
-                driver_list_notprelink.append(driver_dict)
-        #print driver_list_prelink, driver_list_notprelink
+                if "_PrelinkKmodInfo" in driver_details:
+                    driver_name = (driver_details["CFBundleName"], driver_details["CFBundleIdentifier"],
+                                   driver_details["_PrelinkKmodInfo"])
+                else:
+                    driver_name = (driver_details["CFBundleName"], driver_details["CFBundleIdentifier"],
+                                   None)
+
+                if "_PrelinkExecutableLoadAddr" in driver_details:
+                    driver_dict[driver_details["_PrelinkExecutableLoadAddr"]] = driver_name
+                    driver_list_prelink.append(driver_dict)
+                else:
+                    driver_dict["0x0000000000000000"] = driver_name
+                    driver_list_notprelink.append(driver_dict)
         return driver_list_prelink, driver_list_notprelink
+
+    def get_driver_list_v2(self):
+        driver_list_prelink = {}
+        driver_list_notprelink = []
+        fh = self.macho_file
+
+        sec_addr = self.get_section_addrs()["__PRELINK_INFO,__info"]["offset"]
+        sec_size = self.get_section_addrs()["__PRELINK_INFO,__info"]["size"]
+
+        contain_pac = False
+        if "__PRELINK_INFO,__kmod_start" in self.get_section_addrs():
+            contain_pac = True
+
+        kmod_addresses = []
+        if contain_pac:
+            sec_kmod_start_addr = self.get_section_addrs()["__PRELINK_INFO,__kmod_start"]["offset"]
+            sec_kmod_start_size = self.get_section_addrs()["__PRELINK_INFO,__kmod_start"]["size"]
+            # get all drivers start address second
+            size = 0
+            fh.seek(sec_kmod_start_addr)
+            while size < sec_kmod_start_size:
+                # little-endian
+                kmod_address = struct.unpack('<Q', fh.read(8))[0]
+                kmod_addresses.append(kmod_address)
+                size += 8
+
+        size = 0
+        section = ""
+        fh.seek(sec_addr)
+        while size < sec_size:
+            sect = struct.unpack('>B', fh.read(1))[0]
+            if sect == 0:
+                break
+            section += hex(sect).replace("0x", "").replace("L", "").decode(
+                "hex")  # binascii.a2b_hex(hex(sect).replace("0x", ""))
+            sec_addr += 1
+            size += 1
+            fh.seek(sec_addr)
+
+        tree = ET.fromstring(section.strip("\x00"))
+        for bundle in tree.iterfind("array/dict"):
+            driver_details = self.__parser_driver_dict(ET.tostring(bundle))
+            if contain_pac and "ModuleIndex" in driver_details:
+                driver_list_prelink[driver_details["CFBundleIdentifier"]] = \
+                    hex(kmod_addresses[int(driver_details["ModuleIndex"], 16)] | 0xffff000000000000).replace('L','')
+            else:
+                if "_PrelinkExecutableLoadAddr" in driver_details:
+                    if "Pseudoextension" in driver_details["CFBundleName"]:
+                        driver_list_notprelink.append(driver_details["CFBundleIdentifier"])
+                    else:
+                        driver_list_prelink[driver_details["CFBundleIdentifier"]] = driver_details["_PrelinkExecutableLoadAddr"]
+                else:
+                    driver_list_notprelink.append(driver_details["CFBundleIdentifier"])
+        return driver_list_prelink, driver_list_notprelink
+
+    def get_kmod_init_functions(self):
+        fh = self.macho_file
+        sec_kmod_start_addr = 0
+        sec_kmod_start_size = 0
+        if OSInfo.os_version == IOS_VERSION_13:
+            sec_kmod_start_addr = self.get_section_addrs()["__DATA_CONST,__kmod_init"]["offset"]
+            sec_kmod_start_size = self.get_section_addrs()["__DATA_CONST,__kmod_init"]["size"]
+        elif OSInfo.os_version == IOS_VERSION_12:
+            sec_kmod_start_addr = self.get_section_addrs()["__DATA,__kmod_init"]["offset"]
+            sec_kmod_start_size = self.get_section_addrs()["__DATA,__kmod_init"]["size"]
+        # get all drivers start address second
+        size = 0
+        kmod_initFunc_list = []
+        fh.seek(sec_kmod_start_addr)
+        while size < sec_kmod_start_size:
+            # little-endian
+            kmod_initFunc_address = struct.unpack('<Q', fh.read(8))[0]
+            kmod_initFunc_list.append(kmod_initFunc_address | 0xffff000000000000)
+            size += 8
+        return kmod_initFunc_list
 
     def extract_kext(self, bundleID=None, dir=None):
         for driver in self.driver_list_notprelink:

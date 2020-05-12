@@ -210,7 +210,6 @@ if __name__ == '__main__':
         else:
             sub_ioservice_str = extract_sub_ioservice
             sub_ioservice = ast.literal_eval(sub_ioservice_str)
-            print type(sub_ioservice)
             getSubIOServicesClass(kernel_f, sub_ioservice)
 
         exit(0)
@@ -224,7 +223,7 @@ if __name__ == '__main__':
         exit(0)
 
     kernel = KernelMachO(kernel_f)
-    driver_list_prelink, driver_list_notprelink = kernel.get_driver_list()
+    driver_list_prelink, driver_list_notprelink = kernel.get_driver_list_v1()
 
     if is_printK:
         print_kext_list(driver_list_prelink, driver_list_notprelink)

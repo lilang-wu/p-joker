@@ -19,27 +19,6 @@ class MachOHeader(object):
         self.kernel_header = None
         self.fh = fileview(fh, offset, size)
 
-    def get_driver_list(self):
-        driver_list_prelink = {}
-        driver_list_notprelink = []
-
-        sec_addr = self.macho_get_fileaddr("__PRELINK_INFO", "__info")
-        sec_size = self.macho_get_size("__PRELINK_INFO", "__info")
-
-        section = self.memcpy(sec_addr, sec_size)
-        tree = ET.fromstring(section.strip("\x00"))
-        for bundle in tree.iterfind("array/dict"):
-            driver_dict = {}
-            driver_details = self.__parser_driver_dict(ET.tostring(bundle))
-            if "_PrelinkExecutableLoadAddr" in driver_details:
-                if "Pseudoextension" in driver_details["CFBundleName"]:
-                    driver_list_notprelink.append(driver_details["CFBundleIdentifier"])
-                else:
-                    driver_list_prelink[driver_details["CFBundleIdentifier"]] = driver_details["_PrelinkExecutableLoadAddr"]
-            else:
-                driver_list_notprelink.append(driver_details["CFBundleIdentifier"])
-        return driver_list_prelink, driver_list_notprelink
-
     def __parser_driver_dict(self, bundle):
         attr_dict = {}
         tree = ET.fromstring(bundle)
@@ -420,6 +399,9 @@ class MachOHeader(object):
 
     def get_f_from_vm(self, anchor_f, anchor_vm, src_vm):
         return anchor_f + (src_vm - anchor_vm)
+
+    def get_f_from_vm_by_offset(self, offset, src_vm):
+        return src_vm - offset
 
     def get_vm_from_f(self, anchor_f, anchor_vm, src_f):
         return anchor_vm + (src_f - anchor_f)
