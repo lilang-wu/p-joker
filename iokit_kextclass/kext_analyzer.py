@@ -66,6 +66,7 @@ def get_single_IMM(insn):
         print "\t[-] get_single_IMM: no imm reg found!"
     return to_x(insn.op_find(CS_OP_IMM, 1).value.imm)
 
+
 def get_mem_op_offset(insn):
     mem_num = insn.op_count(CS_OP_MEM)
     if mem_num >= 1:
@@ -444,10 +445,14 @@ def is_real_osobject_operator_new_address(k_header, bl_addr_vm):
 
 def analysis_mif(k_header=None, iskext=False):  # mod init func
     global CONTAIN_PAC
-    if iskext and CONTAIN_PAC:
+    if iskext and OSInfo.os_version == IOS_VERSION_13:
         mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__kmod_init")
         mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__kmod_init")
         mod_init_size = k_header.macho_get_size("__DATA_CONST", "__kmod_init")
+    elif iskext and OSInfo.os_version == IOS_VERSION_12:
+        mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA", "__kmod_init")
+        mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA", "__kmod_init")
+        mod_init_size = k_header.macho_get_size("__DATA", "__kmod_init")
     else:
         mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__mod_init_func")
         mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__mod_init_func")
@@ -489,6 +494,7 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
         if iskext and debug:
             print("\t[-] _analyze_init_func: 0x%x:\t%s\t%s" % (address, mnemonic, op_str))
 
+        # print("\t[-] _analyze_init_func: 0x%x:\t%s\t%s" % (address, mnemonic, op_str))
         if not (cmp(mnemonic, "adrp") and cmp(mnemonic, "adr")):
             imm = get_single_IMM(insn)
             seg_num = insn.op_count(CS_OP_REG)
@@ -548,17 +554,18 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
 
         if not cmp(mnemonic, "ldr"):
             reg_num = len(insn.operands)
-            if reg_num == 1:
-                f_reg = get_first_reg(insn)
-                imem_num = insn.op_count(CS_OP_MEM)
-                if imem_num:
-                    mem_offset = get_mem_op_offset(insn)
-                    s_reg = get_mem_op_reg(insn)
-                    s_reg_v = get_actual_value_by_regN(s_reg)
+            if reg_num == 2:
+                f_reg = get_first_reg_v2(insn)
+                s_reg = get_second_reg_v2(insn)
+                if f_reg != s_reg:
+                    continue
+                s_reg_v = get_actual_value_by_regN(s_reg)
+
+                if insn.operands[1].type == 3:
+                    mem_offset = insn.operands[1].mem.disp
+                    # print hex(s_reg_v), hex(mem_offset), hex(prelink_data_vm)
                     # set_actual_value_by_regN(s_reg, s_reg_v + mem_offset)
                     # print s_reg, get_actual_value_by_regN(s_reg)
-                    if s_reg_v is None:
-                        continue
                     # print hex(each_mif_f), hex(each_mif_vm), hex(s_reg_v + mem_offset)
                     # print hex(k_header.get_prelinkf_from_vm(s_reg_v + mem_offset))
                     if iskext:
@@ -570,8 +577,15 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
                                 x_reg_mem_v = k_header.kernel_header.memcpy(
                                     k_header.get_f_from_vm(prelink_data_f, prelink_data_vm, s_reg_v + mem_offset), 8)
                             else:
-                                x_reg_mem_v = k_header.memcpy(k_header.get_prelinkf_from_vm(
-                                    s_reg_v + mem_offset), 8)
+                                try:
+                                    if is_located_in_prelink_sections(s_reg_v + mem_offset):
+                                        x_reg_mem_v = k_header.kernel_header.memcpy(k_header.get_prelinkf_from_vm(
+                                            s_reg_v + mem_offset), 8)
+                                    else:
+                                        x_reg_mem_v = k_header.get_mem_from_vmaddr(each_mif_f, each_mif_vm,
+                                                                                   s_reg_v + mem_offset)
+                                except:
+                                    continue
                     else:
                         x_reg_mem_v = k_header.get_mem_from_vmaddr(each_mif_f, each_mif_vm,
                                                                    s_reg_v + mem_offset)
@@ -600,6 +614,9 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
                     each_meta_class = meta_class
 
                 else:
+                    if CONTAIN_PAC:
+                        continue
+
                     bl_addr_vm = int(bl_addr_vm, 16)
                     bl_addr_f = k_header.get_f_from_vm(each_mif_f, each_mif_vm, bl_addr_vm)
                     # print hex(bl_addr_f), hex(bl_addr_vm)
@@ -697,7 +714,8 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
             if mc_meth_addr:
                 break
             mc_meth_start_f += 8
-
+        if OSInfo.os_version == IOS_VERSION_13:
+            mc_meth_start_f += 8
         mc_meth_addr = k_header.memcpy(mc_meth_start_f, 8)
         while mc_meth_addr:
             if CONTAIN_PAC:
@@ -808,7 +826,8 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                     if o_meth_addr:
                         break
                     o_meth_start_f += 8
-
+                if OSInfo.os_version == IOS_VERSION_13:
+                    o_meth_start_f += 8
                 o_meth_addr = k_header.memcpy(o_meth_start_f, 8)
                 while o_meth_addr:
                     if CONTAIN_PAC:
@@ -867,7 +886,8 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                 if mc_meth_addr:
                     break
                 mc_meth_start_f += 8
-
+            if OSInfo.os_version == IOS_VERSION_13:
+                mc_meth_start_f += 8
             mc_meth_addr = k_header.memcpy(mc_meth_start_f, 8)
             while mc_meth_addr:
                 mc_meth_addr = ((mc_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
@@ -938,8 +958,6 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                 if not cmp(mnemonic, "retab"):
                     break
 
-            print hex(meta_class.object_vt_vm)
-
             if meta_class.object_vt_vm:
                 o_meth_start_f = meta_class.object_vt_f
 
@@ -948,7 +966,8 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                     if o_meth_addr:
                         break
                     o_meth_start_f += 8
-
+                if OSInfo.os_version == IOS_VERSION_13:
+                    o_meth_start_f += 8
                 o_meth_addr = k_header.memcpy(o_meth_start_f, 8)
                 while o_meth_addr:
                     if CONTAIN_PAC:
@@ -1476,6 +1495,36 @@ def prepare_text_exec_regions(kernel_header, kernel_f, debug=False):
         # print hex(exec_text_start_vm), hex(exec_text_start_vm+exec_text_start_size)
 
 
+def prepare_prelink_regions(kernel_header):
+    global CONTAIN_PAC
+    global KEXT_DETAILS
+    if (OSInfo.os_version == IOS_VERSION_10) or (OSInfo.os_version == IOS_VERSION_11):
+        prelink_text_vm = kernel_header.macho_get_vmaddr("__PRELINK_TEXT", "__text")
+        prelink_text_size = kernel_header.macho_get_size("__PRELINK_TEXT", "__text")
+        KernelCacheInfo.prelink_text_start_vm = prelink_text_vm
+        KernelCacheInfo.prelink_text_end_vm = prelink_text_vm + prelink_text_size
+
+        plk_text_vm = kernel_header.macho_get_vmaddr("__PLK_TEXT_EXEC", "__text")
+        plk_text_size = kernel_header.macho_get_size("__PLK_TEXT_EXEC", "__text")
+        KernelCacheInfo.plk_text_start_vm = plk_text_vm
+        KernelCacheInfo.plk_text_end_vm = plk_text_vm + plk_text_size
+
+        pdc_data_vm = kernel_header.macho_get_vmaddr("__PLK_DATA_CONST", "__data")
+        pdc_data_size = kernel_header.macho_get_size("__PLK_DATA_CONST", "__data")
+        KernelCacheInfo.pdc_data_start_vm = pdc_data_vm
+        KernelCacheInfo.pdc_data_end_vm = pdc_data_vm + pdc_data_size
+
+        pd_data_vm = kernel_header.macho_get_vmaddr("__PRELINK_DATA", "__data")
+        pd_data_size = kernel_header.macho_get_size("__PRELINK_DATA", "__data")
+        KernelCacheInfo.pd_data_start_vm = pd_data_vm
+        KernelCacheInfo.pd_data_end_vm = pd_data_vm + pd_data_size
+
+        prelink_info_vm = kernel_header.macho_get_vmaddr("__PRELINK_INFO", "__info")
+        prelink_info_size = kernel_header.macho_get_size("__PRELINK_INFO", "__info")
+        KernelCacheInfo.prelink_info_start_vm = prelink_info_vm
+        KernelCacheInfo.prelink_info_end_vm = prelink_info_vm + prelink_info_size
+
+
 def get_metaclass_v1(kernel_header, kernel_f, driver_list_p, prelink_f_offset):
     get_all_metaclass(kernel_header, False)
 
@@ -1627,8 +1676,10 @@ def getSubIOServicesClass(kernel_f, sub_ioservice):
     prepare_offset(k_header)
     print "[+] check if the kernelcache contains PAC info"
     contain_pac(kernel_f)
-    print "[+] prepare the region of (__TEXT_EXEC, __text) section for each kernel extension"
+    print "[+] prepare the region range of (__TEXT_EXEC, __text) section for each kernel extension"
     prepare_text_exec_regions(k_header, kernel_f)
+    print "[+] prepare the region range of prelink sections for IOS 10/11"
+    prepare_prelink_regions(k_header)
 
     print "[+] setup OSMetaClass::OSMetaClass(char const*,OSMetaClass const*,uint) function address"
     setup_OSMetaClassFunc(k_header)
