@@ -50,11 +50,11 @@
   pylzfse  
   capstone=5.0.0 (https://github.com/aquynh/capstone/tree/next)  
   
-  #### Note: please install the capstone in their next branch
+  #### Note: please install the capstone in their next branch, which can support PAC instructions set
   
 # Support platforms
   MacOS/Windows/Linux
   
   
 #
-if you have any questions, just open the issue!
+if you have any questions, contact me on Twitter (@Lilang_Wu)
