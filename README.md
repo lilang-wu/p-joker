@@ -1,6 +1,6 @@
 # p-joker -- iOS/MacOS Kernelcache/Extensions analysis tool
-  ### For iOS kernelcache, this tool support 64bit kernelcache and have tested on iOS10/iOS11/iOS12/iOS13 kernelcache   
-  ### For MacOS kernel extensions, it support all the extensions' mach-o file.  
+  For iOS kernelcache, this tool support 64bit kernelcache and have tested on iOS10/iOS11/iOS12/iOS13 kernelcache   
+  For MacOS kernel extensions, it support all the extensions' mach-o file.  
   
 # Usuage
 ## for p-joker.py (support iOS kernelcache analysis only, and -e feature can support iOS 12/13 now)
