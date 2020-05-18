@@ -19,7 +19,6 @@ from TypeParser import *
 OSMetaClass_OSMetaClass_VMaddr = 0
 IOUserClient_VMaddr = 0
 IOService_VMaddr = 0
-CONTAIN_PAC = False
 OSOBJECT_OPERATOR_NEW_VMADDR = 0
 KEXT_DETAILS = {}
 
@@ -51,11 +50,6 @@ def init_kext_header(kernel_f, kext_f):
     return MachOHeader(macho_file, kext_f, size)
 
 
-def contain_pac(kernel_f):
-    global CONTAIN_PAC
-    kernel_handler = KernelMachO(kernel_f)
-    if "__PRELINK_INFO,__kmod_start" in kernel_handler.get_section_addrs():
-        CONTAIN_PAC = True
 
 
 def get_single_IMM(insn):
@@ -96,7 +90,7 @@ def get_second_reg_v2(insn):
     return insn.operands[1].reg
 
 
-def prepare_string(k_header):
+def prepare_string(k_header, kernel_f):
     global STRING_TAB
     global CSTRING_TAB
 
@@ -119,13 +113,17 @@ def prepare_string(k_header):
         STRING_TAB[addr] = string
         offset += 16
 
+    kernel_handler = KernelMachO(kernel_f)
     cstrings = k_header.memcpy(text_cstring_f, text_cstring_size)
     cstrings_list = cstrings.split("\x00")
     for cstring in cstrings_list:
-        if "xnu-" in cstring:
-            set_system_version(cstring)
         CSTRING_TAB[text_cstring_vm] = cstring
         text_cstring_vm = len(cstring) + 1 + text_cstring_vm
+
+    text_const_f = k_header.macho_get_fileaddr("__TEXT", "__const")
+    text_const_size = k_header.macho_get_size("__TEXT", "__const")
+    text_const = k_header.memcpy(text_const_f, text_const_size)
+    set_system_version(text_const, kernel_handler)
 
 
 def prepare_offset(k_header):
@@ -444,19 +442,28 @@ def is_real_osobject_operator_new_address(k_header, bl_addr_vm):
 
 
 def analysis_mif(k_header=None, iskext=False):  # mod init func
-    global CONTAIN_PAC
-    if iskext and OSInfo.os_version == IOS_VERSION_13:
-        mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__kmod_init")
-        mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__kmod_init")
-        mod_init_size = k_header.macho_get_size("__DATA_CONST", "__kmod_init")
-    elif iskext and OSInfo.os_version == IOS_VERSION_12:
-        mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA", "__kmod_init")
-        mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA", "__kmod_init")
-        mod_init_size = k_header.macho_get_size("__DATA", "__kmod_init")
+    # just got a anchor which use for the transmit between vm address and file address
+    if OSInfo.format == KERNELCACHE_NEW:
+        if iskext and OSInfo.os_version == IOS_VERSION_13:
+            mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__kmod_init")
+            mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__kmod_init")
+            mod_init_size = k_header.macho_get_size("__DATA_CONST", "__kmod_init")
+        elif iskext and OSInfo.os_version == IOS_VERSION_12:
+            mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA", "__kmod_init")
+            mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA", "__kmod_init")
+            mod_init_size = k_header.macho_get_size("__DATA", "__kmod_init")
+        else:
+            mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__mod_init_func")
+            mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__mod_init_func")
+            mod_init_size = k_header.macho_get_size("__DATA_CONST", "__mod_init_func")
     else:
         mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__mod_init_func")
         mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__mod_init_func")
         mod_init_size = k_header.macho_get_size("__DATA_CONST", "__mod_init_func")
+
+    if mod_init_vmaddr == 0 and mod_init_size == 0 and mod_init_fileaddr == 0:
+        print "\t\t[>] analysis_mif: please confirm the version of kernelcahce first"
+        exit(-2)
 
     total_mif = mod_init_size / 8
     print "\t\t[>] analysis_mif: total %d kernel base object modinit" % total_mif
@@ -477,10 +484,9 @@ def analysis_mif(k_header=None, iskext=False):  # mod init func
 def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
     global IOUserClient_VMaddr
     global IOService_VMaddr
-    global CONTAIN_PAC
-
     global prelink_data_vm
     global prelink_data_f
+
     cs_handler = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
     cs_handler.detail = True  # this is very important
     code = k_header.memcpy(each_mif_f, 0xfff)
@@ -569,7 +575,7 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
                     # print hex(each_mif_f), hex(each_mif_vm), hex(s_reg_v + mem_offset)
                     # print hex(k_header.get_prelinkf_from_vm(s_reg_v + mem_offset))
                     if iskext:
-                        if CONTAIN_PAC:
+                        if OSInfo.format == KERNELCACHE_NEW:
                             x_reg_mem_v = k_header.get_mem_from_vmaddr(each_mif_f, each_mif_vm,
                                                                        s_reg_v + mem_offset)
                         else:
@@ -614,7 +620,7 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
                     each_meta_class = meta_class
 
                 else:
-                    if CONTAIN_PAC:
+                    if OSInfo.format == KERNELCACHE_NEW:
                         continue
 
                     bl_addr_vm = int(bl_addr_vm, 16)
@@ -665,7 +671,7 @@ def _analyze_init_func(k_header, each_mif_f, each_mif_vm, iskext, debug=False):
 
             f_reg_v_vm = get_actual_value_by_regN(f_reg)
             if iskext:
-                if CONTAIN_PAC:
+                if OSInfo.format == KERNELCACHE_NEW:
                     f_reg_v_f = k_header.get_f_from_vm(each_mif_f, each_mif_vm, f_reg_v_vm)
                 else:
                     f_reg_v_f = k_header.get_prelinkf_from_vm(f_reg_v_vm)
@@ -691,7 +697,6 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
     global STRING_TAB
     global BASE_CLASS
     global DRIVER_CLASS
-    global CONTAIN_PAC
     global OSOBJECT_OPERATOR_NEW_VMADDR
 
     if not meta_class.class_name:
@@ -718,8 +723,11 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
             mc_meth_start_f += 8
         mc_meth_addr = k_header.memcpy(mc_meth_start_f, 8)
         while mc_meth_addr:
-            if CONTAIN_PAC:
-                mc_meth_addr = ((mc_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+            if OSInfo.format == KERNELCACHE_NEW:
+                if OSInfo.processor == A13 or OSInfo.processor == A12:
+                    mc_meth_addr = ((mc_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                else: # only is A11
+                    mc_meth_addr = (mc_meth_addr & 0x00000000ffffffff) | 0xfffffff000000000
             if mc_meth_addr in STRING_TAB:
                 metaclass_name = STRING_TAB[mc_meth_addr]
             else:
@@ -758,7 +766,6 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
             mod_init_vmaddr = k_header.macho_get_vmaddr("__DATA_CONST", "__mod_init_func")
             mod_init_fileaddr = k_header.macho_get_fileaddr("__DATA_CONST", "__mod_init_func")
             metaclass_alloc_f = k_header.get_f_from_vm(mod_init_fileaddr, mod_init_vmaddr, metaclass_alloc_vm)
-
             cs_handler = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
             cs_handler.detail = True  # this is very important
             code = k_header.memcpy(metaclass_alloc_f, 0xfff)
@@ -830,8 +837,11 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                     o_meth_start_f += 8
                 o_meth_addr = k_header.memcpy(o_meth_start_f, 8)
                 while o_meth_addr:
-                    if CONTAIN_PAC:
-                        o_meth_addr = ((o_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                    if OSInfo.format == KERNELCACHE_NEW:
+                        if OSInfo.processor == A13 or OSInfo.processor == A12:
+                            o_meth_addr = ((o_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                        else:
+                            o_meth_addr = (o_meth_addr & 0x00000000ffffffff) | 0xfffffff000000000
                     if o_meth_addr in STRING_TAB:
                         o_meth_name = STRING_TAB[o_meth_addr]
                     else:
@@ -854,8 +864,11 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                     o_meth_addr = k_header.memcpy(userclient_f, 8)
                     index = 0
                     while o_meth_addr:
-                        if CONTAIN_PAC:
-                            o_meth_addr = ((o_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                        if OSInfo.format == KERNELCACHE_NEW:
+                            if OSInfo.processor == A13 or OSInfo.processor == A12:
+                                o_meth_addr = ((o_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                            else:
+                                o_meth_addr = (o_meth_addr & 0x00000000ffffffff) | 0xfffffff000000000
                         o_meth_name = userclient_instance_list[index]
                         if not o_meth_name:
                             o_meth_name = "sub_" + hex(o_meth_addr).replace("0x", "")
@@ -864,7 +877,7 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                         index += 1
                         o_meth_addr = k_header.memcpy(userclient_f, 8)
 
-        if CONTAIN_PAC and (not cmp(meta_class.class_name, "IOService")):
+        if OSInfo.format == KERNELCACHE_NEW and (not cmp(meta_class.class_name, "IOService")):
             for i in range(len(meta_class.instance_list)):
                 instance_func = meta_class.instance_list[i]
                 func_addr = instance_func.split("\t")[0]
@@ -876,7 +889,7 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
 
         BASE_CLASS[meta_class.class_self_addr] = meta_class
     else:
-        if CONTAIN_PAC:
+        if OSInfo.format == KERNELCACHE_NEW:
             meta_class.metaclass_vt_vm = x_metaclass_vt_vm
             meta_class.metaclass_vt_f = x_metaclass_vt_f
             mc_meth_start_f = meta_class.metaclass_vt_f
@@ -890,7 +903,10 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                 mc_meth_start_f += 8
             mc_meth_addr = k_header.memcpy(mc_meth_start_f, 8)
             while mc_meth_addr:
-                mc_meth_addr = ((mc_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                if OSInfo.processor == A13 or OSInfo.processor == A12:
+                    mc_meth_addr = ((mc_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                else: # only is A11
+                    mc_meth_addr = (mc_meth_addr & 0x00000000ffffffff) | 0xfffffff000000000
                 if mc_meth_addr in STRING_TAB:
                     metaclass_name = STRING_TAB[mc_meth_addr]
                 else:
@@ -970,8 +986,11 @@ def parse_const_func(k_header, meta_class, x_metaclass_vt_vm, x_metaclass_vt_f, 
                     o_meth_start_f += 8
                 o_meth_addr = k_header.memcpy(o_meth_start_f, 8)
                 while o_meth_addr:
-                    if CONTAIN_PAC:
-                        o_meth_addr = ((o_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                    if OSInfo.format == KERNELCACHE_NEW:
+                        if OSInfo.processor == A13 or OSInfo.processor == A12:
+                            o_meth_addr = ((o_meth_addr & 0x00000000ffffffff) + 0x07004000) | 0xfffffff000000000
+                        else:
+                            o_meth_addr = (o_meth_addr & 0x00000000ffffffff) | 0xfffffff000000000
                     if hex(o_meth_addr) in ioservice_instance_func_map:
                         o_meth_name = ioservice_instance_func_map[hex(o_meth_addr)]
                     else:
@@ -1284,7 +1303,7 @@ def printfunc(meta_class):
         print "\t\t[*] %s vtable: %s [*]" % (meta_class.class_name, hex(meta_class.object_vt_vm))
 
         # print class title
-        title = "\t\t%-3s  %-25s%-60s" % (" ", " ", meta_class.class_name)
+        title = "\t\t%-3s  %-25s%-60s" % (" ", "Method Address ", meta_class.class_name)
         for j in range(len(meta_class.class_super_list)):
             super_addr = meta_class.class_super_list[j]
             super_c = None
@@ -1362,7 +1381,6 @@ def analysis_mif_kext(kernel_header, kernel_f, kexts):
     global prelink_kext_vm
     global prelink_kext_f
     global prelink_kext_size
-    global CONTAIN_PAC
     global KEXT_DETAILS
 
     if not isinstance(kexts, list):
@@ -1374,7 +1392,7 @@ def analysis_mif_kext(kernel_header, kernel_f, kexts):
 
     # used to calculate the file offset
     prelink_f_offset = prelink_kext_vm - prelink_kext_f
-    if CONTAIN_PAC:
+    if OSInfo.format == KERNELCACHE_NEW:
         text_exec_vmaddr = kernel_header.macho_get_vmaddr("__TEXT_EXEC", "__text")
         text_exec_fileaddr = kernel_header.macho_get_fileaddr("__TEXT_EXEC", "__text")
         prelink_f_offset = text_exec_vmaddr - text_exec_fileaddr
@@ -1459,9 +1477,8 @@ def analysis_mif_kext(kernel_header, kernel_f, kexts):
 
 
 def prepare_text_exec_regions(kernel_header, kernel_f, debug=False):
-    global CONTAIN_PAC
     global KEXT_DETAILS
-    if not CONTAIN_PAC:
+    if not (OSInfo.format == KERNELCACHE_NEW):
         return
 
     text_exec_vmaddr = kernel_header.macho_get_vmaddr("__TEXT_EXEC", "__text")
@@ -1496,7 +1513,6 @@ def prepare_text_exec_regions(kernel_header, kernel_f, debug=False):
 
 
 def prepare_prelink_regions(kernel_header):
-    global CONTAIN_PAC
     global KEXT_DETAILS
     if (OSInfo.os_version == IOS_VERSION_10) or (OSInfo.os_version == IOS_VERSION_11):
         prelink_text_vm = kernel_header.macho_get_vmaddr("__PRELINK_TEXT", "__text")
@@ -1671,11 +1687,9 @@ def get_metaclass_v2(k_header, kernel_handler, prelink_f_offset):
 def getSubIOServicesClass(kernel_f, sub_ioservice):
     k_header = init_kernel_header(kernel_f)
     print "[+] prepare string table"
-    prepare_string(k_header)
+    prepare_string(k_header, kernel_f)
     print "[+] prepare some critical offsets"
     prepare_offset(k_header)
-    print "[+] check if the kernelcache contains PAC info"
-    contain_pac(kernel_f)
     print "[+] prepare the region range of (__TEXT_EXEC, __text) section for each kernel extension"
     prepare_text_exec_regions(k_header, kernel_f)
     print "[+] prepare the region range of prelink sections for IOS 10/11"
@@ -1693,7 +1707,7 @@ def getSubIOServicesClass(kernel_f, sub_ioservice):
     analysis_mif_kext(k_header, kernel_f, sub_ioservice)
     print "[+] build the relationship for meta classes"
     analysis_inheritance_base(True, True)
-    #"""
+
 
 if __name__ == '__main__':
     #
